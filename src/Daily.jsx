@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Header from './Header.jsx'
+import HowTo from './HowTo.jsx'
 import { Button } from '@/components/ui/button'
 import { alarm, tick, unlockAudio } from './sound.js'
 import { completeToday, getTodayChallenge, streakInfo } from './daily.js'
@@ -51,7 +52,10 @@ export default function Daily({ onBack, onProgress }) {
   return (
     <div className="screen">
       <Header title="Daily challenge" onBack={onBack} />
-      <div className="slot">{challenge.name}</div>
+      <div className="slot" style={{ paddingBottom: 56 }}>
+        {challenge.name}
+        <HowTo name={challenge.name} />
+      </div>
       <div className="target">{timed ? `Hold for ${challenge.amount}s` : `${challenge.amount} reps`}</div>
       {timed && (
         <div className="hold">

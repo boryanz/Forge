@@ -3,19 +3,19 @@ import { getDaily, getHistory, saveDaily } from './storage.js'
 // Light one-exercise challenges, tagged by the muscle area they hit.
 export const CHALLENGES = [
   { key: 'pushups', name: 'Push-ups', amount: 20, unit: 'reps', area: 'push' },
-  { key: 'diamond', name: 'Diamond push-ups', amount: 12, unit: 'reps', area: 'push' },
-  { key: 'pike', name: 'Pike push-ups', amount: 12, unit: 'reps', area: 'push' },
+  { key: 'diamond', name: 'Diamond Push-ups', amount: 12, unit: 'reps', area: 'push' },
+  { key: 'pike', name: 'Pike Push-ups', amount: 12, unit: 'reps', area: 'push' },
   { key: 'pullups', name: 'Pull-ups', amount: 10, unit: 'reps', area: 'pull' },
   { key: 'chinups', name: 'Chin-ups', amount: 8, unit: 'reps', area: 'pull' },
-  { key: 'australian', name: 'Australian pull-ups', amount: 15, unit: 'reps', area: 'pull' },
+  { key: 'australian', name: 'Australian Pull-ups', amount: 15, unit: 'reps', area: 'pull' },
   { key: 'squats', name: 'Squats', amount: 30, unit: 'reps', area: 'legsFront' },
-  { key: 'lunges', name: 'Reverse lunges', amount: 20, unit: 'reps', area: 'legsFront' },
-  { key: 'wallsit', name: 'Wall sit', amount: 45, unit: 'sec', area: 'legsFront' },
-  { key: 'bridges', name: 'Glute bridges', amount: 25, unit: 'reps', area: 'legsBack' },
-  { key: 'calves', name: 'Calf raises', amount: 30, unit: 'reps', area: 'legsBack' },
+  { key: 'lunges', name: 'Split Squats', amount: 20, unit: 'reps', area: 'legsFront' },
+  { key: 'wallsit', name: 'Wall Sit', amount: 45, unit: 'sec', area: 'legsFront' },
+  { key: 'bridges', name: 'Glute Bridges', amount: 25, unit: 'reps', area: 'legsBack' },
+  { key: 'calves', name: 'Calf Raises', amount: 30, unit: 'reps', area: 'legsBack' },
   { key: 'crunches', name: 'Crunches', amount: 20, unit: 'reps', area: 'core' },
   { key: 'plank', name: 'Plank', amount: 60, unit: 'sec', area: 'core' },
-  { key: 'legraises', name: 'Leg raises', amount: 15, unit: 'reps', area: 'core' },
+  { key: 'legraises', name: 'Leg Raises', amount: 15, unit: 'reps', area: 'core' },
 ]
 
 // Areas that are fine to train today, given what the last workout hit.
