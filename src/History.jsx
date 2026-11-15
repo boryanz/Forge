@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
-import { CATEGORIES, HIIT_EXERCISES, HIIT_WORK, catInfo, fmtSet, isTimed, levelLabel, totalReps } from './data.js'
-import { getHistory } from './storage.js'
+import { CATEGORIES, HIIT_EXERCISES, HIIT_WORK, catInfo, fmtSet, isIntervalWorkout, isTimed, levelLabel, totalReps } from './data.js'
+import { getDaily, getHistory } from './storage.js'
+import { dayKey, streakInfo } from './daily.js'
 import Header from './Header.jsx'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -14,37 +14,121 @@ const maxWeight = (sets) => Math.max(0, ...sets.map((x) => x.weight ?? 0))
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: '2-digit' })
 
-// Rising-arrow trend icon standing in for the word "Progress".
-function TabIcon({ label }) {
+const TrendIcon = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.200" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 18l6-6 4 4 8-9M15 7h6v6" />
+  </svg>
+)
+
+// Short name for the neighbour hints; the title above the slide uses the full name.
+const SLIDES = [
+  { id: 'log', title: 'Log', short: 'Log' },
+  { id: 'graph', title: 'Shuffler Progress', short: 'Shuffler', icon: true },
+  { id: 'weight', title: 'Weight Progress', short: 'Weight', icon: true },
+  { id: 'cardio', title: 'Cardio Progress', short: 'Cardio', icon: true },
+  { id: 'interval', title: 'Interval Progress', short: 'Interval', icon: true },
+  { id: 'daily', title: 'Daily Challenge', short: 'Daily' },
+]
+
+const RESET = { background: 'none', border: 'none', padding: 0, boxShadow: 'none', minHeight: 0, minWidth: 0 }
+
+function Hint({ slide, side, onClick }) {
+  if (!slide) return <span className="flex-1" />
+  const label = <span className="flex items-center gap-1">{slide.icon && <TrendIcon size={14} />}{slide.short}</span>
   return (
-    <span className="flex items-center gap-1">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.200" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 18l6-6 4 4 8-9M15 7h6v6" />
-      </svg>
-      {label}
-    </span>
+    <button type="button" onClick={onClick} style={RESET} className={`muted flex flex-1 items-center gap-1 text-xs ${side === 'right' ? 'justify-end' : ''}`} aria-label={`Show ${slide.title}`}>
+      {side === 'left' && '‹'}{label}{side === 'right' && '›'}
+    </button>
   )
 }
 
-export default function History({ onBack }) {
-  const [tab, setTab] = useState('log')
+function DailyProgress() {
+  const done = useMemo(() => new Set(getDaily().done), [])
+  const { current, best, last } = useMemo(() => streakInfo(), [])
+  const [month, setMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1) })
+  const today = dayKey()
+  const first = (month.getDay() + 6) % 7 // Monday-first grid
+  const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+  const cells = [...Array(first).fill(null), ...Array.from({ length }, (_, i) => dayKey(new Date(month.getFullYear(), month.getMonth(), i + 1)))]
+  const step = (n) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1))
+  const nav = { background: 'none', border: 'none', boxShadow: 'none', minHeight: 0, minWidth: 0, padding: '0 10px', fontSize: '1.4rem', color: 'var(--yellow)' }
+  return (
+    <>
+      <div className="stats">
+        <Card className="stat"><b>{current}</b>Streak</Card>
+        <Card className="stat"><b>{current === 0 ? last : best}</b>{current === 0 ? 'Last streak' : 'Best'}</Card>
+        <Card className="stat"><b>{done.size}</b>Days done</Card>
+      </div>
+      <Card>
+        <div className="flex items-center justify-between pb-3">
+          <button type="button" style={nav} aria-label="Previous month" onClick={() => step(-1)}>‹</button>
+          <h2 className="label" style={{ margin: 0 }}>{month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h2>
+          <button type="button" style={nav} aria-label="Next month" onClick={() => step(1)}>›</button>
+        </div>
+        <div className="cal">
+          {cells.map((k, i) => k === null
+            ? <span key={`e${i}`} />
+            : <div key={k} className={`cal-day${done.has(k) ? ' done' : ''}${k === today ? ' today' : ''}${k > today ? ' future' : ''}`}>{Number(k.slice(8))}</div>)}
+        </div>
+      </Card>
+    </>
+  )
+}
+
+export default function History({ onBack, slide = 'log' }) {
   const history = useMemo(() => [...getHistory()].reverse(), [])
   const hasWeighted = useMemo(() => history.some(isWeighted), [history])
+  const slides = useMemo(() => SLIDES.filter((x) => x.id !== 'weight' || hasWeighted), [hasWeighted])
+  const [index, setIndex] = useState(() => Math.max(0, slides.findIndex((x) => x.id === slide)))
+  const track = useRef(null)
+
+  useEffect(() => {
+    if (track.current) track.current.scrollLeft = index * track.current.clientWidth
+  }, [])
+
+  const goTo = (i) => {
+    const el = track.current
+    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+  }
+  const onScroll = () => {
+    const el = track.current
+    if (el) setIndex(Math.round(el.scrollLeft / el.clientWidth))
+  }
+
+  const content = {
+    log: history.length === 0 ? <p className="muted">No workouts yet.</p> : <Log history={history} />,
+    graph: <Graph history={history} weighted={false} />,
+    weight: <Graph history={history} weighted />,
+    cardio: <Cardio history={history} />,
+    interval: <IntervalProgress history={history} />,
+    daily: <DailyProgress />,
+  }
+  const current = slides[index] ?? slides[0]
+
   return (
-    <div className="screen">
+    <div className="screen" style={{ height: '100dvh', overflow: 'hidden' }}>
       <Header title="History" onBack={onBack} />
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="overflow-x-auto">
-          <TabsTrigger value="log" className="shrink-0 whitespace-nowrap">Log</TabsTrigger>
-          <TabsTrigger value="graph" className="shrink-0 whitespace-nowrap"><TabIcon label="Shuffler" /></TabsTrigger>
-          <TabsTrigger value="cardio" className="shrink-0 whitespace-nowrap"><TabIcon label="Cardio" /></TabsTrigger>
-          {hasWeighted && <TabsTrigger value="weight" className="shrink-0 whitespace-nowrap"><TabIcon label="Weight" /></TabsTrigger>}
-        </TabsList>
-      </Tabs>
-      {history.length === 0 ? <p className="muted">No workouts yet.</p>
-        : tab === 'log' ? <Log history={history} />
-        : tab === 'cardio' ? <Cardio history={history} />
-        : <Graph key={tab} history={history} weighted={tab === 'weight'} />}
+      <div>
+        <h2 className="m-0 flex items-center justify-center gap-1.5 whitespace-nowrap font-[family-name:var(--display)] text-xl uppercase tracking-[0.06em] text-[var(--yellow)]">
+          {current.icon && <TrendIcon />}{current.title}
+        </h2>
+        <div className="mt-2 flex items-center gap-2">
+          <Hint slide={slides[index - 1]} side="left" onClick={() => goTo(index - 1)} />
+          <div className="flex justify-center gap-2">
+            {slides.map((x, i) => (
+              <button key={x.id} type="button" aria-label={x.title} onClick={() => goTo(i)} style={{ ...RESET, height: 8, width: i === index ? 20 : 8, background: i === index ? 'var(--yellow)' : 'var(--line)' }} className="rounded-full transition-all" />
+            ))}
+          </div>
+          <Hint slide={slides[index + 1]} side="right" onClick={() => goTo(index + 1)} />
+        </div>
+      </div>
+      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
+        {slides.map((x) => (
+          <section key={x.id} style={{ flex: '0 0 100%', minWidth: 0, scrollSnapAlign: 'center' }} className="flex flex-col gap-3.5 overflow-y-auto pb-6">
+            {content[x.id]}
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
@@ -170,8 +254,51 @@ function Cardio({ history }) {
   )
 }
 
+function IntervalProgress({ history }) {
+  const sessions = useMemo(() => history.filter(isIntervalWorkout), [history])
+  if (sessions.length === 0) return <p className="muted">No interval workouts yet. Create one in Create Your Own.</p>
+  const workSeconds = (w) => w.sets.reduce((a, x) => a + x.actual, 0)
+  const rounds = (w) => +(w.sets.length / (w.perRound || w.sets.length || 1)).toFixed(1)
+  const totalWork = sessions.reduce((a, w) => a + workSeconds(w), 0)
+  const data = [...sessions].reverse().map((w) => ({ date: fmtDate(w.date), minutes: +(workSeconds(w) / 60).toFixed(1) }))
+  const byName = Object.values(Object.groupBy(sessions, (w) => w.category))
+  const color = '#06b6d4'
+  return (
+    <>
+      <div className="stats">
+        <Card className="stat"><b>{sessions.length}</b>Sessions</Card>
+        <Card className="stat"><b>{+sessions.reduce((a, w) => a + rounds(w), 0).toFixed(1)}</b>Rounds</Card>
+        <Card className="stat"><b>{fmtMinutes(totalWork)}</b>Work time</Card>
+      </div>
+      <Card>
+        <h2 className="label">Work time per session (min)</h2>
+        <ChartContainer config={{ minutes: { label: 'Minutes', color } }} className="h-48 w-full">
+          <LineChart data={data} margin={{ left: 0, right: 0, top: 8 }}>
+            <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 3" />
+            <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
+            <YAxis tickLine={false} axisLine={false} width={30} fontSize={11} allowDecimals />
+            <ChartTooltip />
+            <Line type="monotone" dataKey="minutes" name="Minutes" stroke={color} strokeWidth={2} dot={{ r: 4, fill: color }} />
+          </LineChart>
+        </ChartContainer>
+      </Card>
+      {byName.map((list) => (
+        <Card key={list[0].category}>
+          <h2 className="label">{list[0].categoryLabel} · {list.length} {list.length === 1 ? 'session' : 'sessions'}</h2>
+          {list.map((w) => (
+            <div key={w.id} className="flex justify-between py-1.5 text-sm">
+              <span>{fmtDate(w.date)}</span>
+              <span>{rounds(w)} {rounds(w) === 1 ? 'round' : 'rounds'} · {fmtMinutes(workSeconds(w))} work</span>
+            </div>
+          ))}
+        </Card>
+      ))}
+    </>
+  )
+}
+
 function Graph({ history, weighted }) {
-  const chrono = useMemo(() => [...history].reverse().filter((w) => w.category !== 'hiit' && isWeighted(w) === weighted), [history, weighted])
+  const chrono = useMemo(() => [...history].reverse().filter((w) => w.category !== 'hiit' && w.level !== 'interval' && isWeighted(w) === weighted), [history, weighted])
   const cats = useMemo(() => {
     const map = new Map()
     chrono.forEach((w) => map.has(w.category) || map.set(w.category, catInfo(w)))

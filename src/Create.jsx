@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CATEGORIES, EXERCISES, MUSCLES } from './data.js'
-import { getCustomExercises, getCustomWorkouts, saveCustomExercises, saveCustomWorkouts } from './storage.js'
+import { getCustomExercises, getCustomIntervals, getCustomWorkouts, saveCustomExercises, saveCustomIntervals, saveCustomWorkouts } from './storage.js'
+import IntervalBuilder, { fmtTotal, intervalSeconds } from './IntervalCreate.jsx'
 import Header from './Header.jsx'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,6 +15,7 @@ const uid = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
 
 export default function Create({ onBack }) {
   const [workouts, setWorkouts] = useState(getCustomWorkouts)
+  const [intervals, setIntervals] = useState(getCustomIntervals)
   const [draft, setDraft] = useState(null)
 
   const persist = (list) => { saveCustomWorkouts(list); setWorkouts(list) }
@@ -22,13 +24,36 @@ export default function Create({ onBack }) {
     setDraft(null)
   }
 
+  const persistIntervals = (list) => { saveCustomIntervals(list); setIntervals(list) }
+  const saveInterval = (w) => {
+    persistIntervals(intervals.some((x) => x.id === w.id) ? intervals.map((x) => (x.id === w.id ? w : x)) : [...intervals, w])
+    setDraft(null)
+  }
+
+  if (draft?.kind === 'interval') return <IntervalBuilder draft={draft} onCancel={() => setDraft(null)} onSave={saveInterval} />
   if (draft) return <Builder draft={draft} onCancel={() => setDraft(null)} onSave={save} />
 
   return (
     <div className="screen">
       <Header title="Create your own" onBack={onBack} />
       <Button onClick={() => setDraft({ id: uid(), name: '', color: COLORS[workouts.length % COLORS.length], exercises: [] })}>+ New workout</Button>
-      {workouts.length === 0 && <p className="muted">Your workouts appear in Start Workout next to the built-in categories.</p>}
+      <Button variant="secondary" onClick={() => setDraft({
+        kind: 'interval', id: uid(), name: '', color: COLORS[(workouts.length + intervals.length) % COLORS.length], rounds: 3,
+        intervals: [{ key: uid(), name: '', muscles: [], work: 30, rest: 15 }],
+      })}>+ New Interval workout</Button>
+      {workouts.length + intervals.length === 0 && <p className="muted">Your workouts appear in Start Workout next to the built-in categories.</p>}
+      {intervals.map((w) => (
+        <Card key={w.id} className="cat" style={{ '--c': w.color }}>
+          <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{w.name}</div>
+          <div className="muted" style={{ fontSize: '.85rem', margin: '4px 0 12px' }}>
+            Interval · {w.intervals.length} intervals × {w.rounds} {w.rounds === 1 ? 'round' : 'rounds'} · {fmtTotal(intervalSeconds(w))} min
+          </div>
+          <div className="row">
+            <Button variant="secondary" size="sm" onClick={() => setDraft({ ...w, kind: 'interval' })}>Edit</Button>
+            <Confirm title={`Delete "${w.name}"?`} confirmLabel="Delete" onConfirm={() => persistIntervals(intervals.filter((x) => x.id !== w.id))} trigger={<Button variant="muted" size="sm">Delete</Button>} />
+          </div>
+        </Card>
+      ))}
       {workouts.map((w) => (
         <Card key={w.id} className="cat" style={{ '--c': w.color }}>
           <div style={{ fontWeight: 800, fontSize: '1.2rem' }}>{w.name}</div>

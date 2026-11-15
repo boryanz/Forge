@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { CATEGORIES, CORE_LEVELS, CORE_ROUND_OPTIONS, LEVELS } from './data.js'
 import { auth } from './firebase.js'
-import { clearUserData, getCustomWorkouts, getProfile, loadUserData, saveProfile, saveWorkout } from './storage.js'
+import { clearUserData, getCustomIntervals, getCustomWorkouts, getProfile, loadUserData, saveProfile, saveWorkout } from './storage.js'
 import Login from './Login.jsx'
 import Forging from './Forging.jsx'
 import LevelSword from './LevelSword.jsx'
+import Daily from './Daily.jsx'
+import { streakInfo } from './daily.js'
+import DailyShield from './DailyShield.jsx'
 import { Confirm } from '@/components/ui/confirm'
 import Session from './Session.jsx'
 import Summary from './Summary.jsx'
@@ -21,6 +24,15 @@ import { Input } from '@/components/ui/input'
 
 const FORGING_MS = 2800
 const HIIT_ROUND_OPTIONS = [1, 2, 3, 4, 5]
+function Divider({ label }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <span className="muted text-xs uppercase tracking-[0.25em]">{label}</span>
+      <div className="h-px flex-1 bg-[var(--line)]" />
+    </div>
+  )
+}
+
 const setOptions = ([min, max]) => Array.from({ length: max - min + 1 }, (_, i) => min + i)
 
 export default function App() {
@@ -36,6 +48,8 @@ export default function App() {
   const [coreRounds, setCoreRounds] = useState(1)
   const [pending, setPending] = useState(null)
   const [custom, setCustom] = useState(null)
+  const [historySlide, setHistorySlide] = useState('log')
+  const [intervalWorkout, setIntervalWorkout] = useState(null)
 
   useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), FORGING_MS)
@@ -90,30 +104,59 @@ export default function App() {
         />
         <p className="muted" style={{ margin: '6px 0 0' }}>Time to forge.</p>
       </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <DailyShield onClick={() => {
+        if (streakInfo().doneToday) { setHistorySlide('daily'); setScreen('history') } else setScreen('daily')
+      }} />
+        <LevelSword onClick={() => { setHistorySlide('log'); setScreen('history') }} />
+      </div>
       <div className="split">
-        <LevelSword onClick={() => setScreen('history')} />
         <Button onClick={() => setScreen('category')}>Start Workout</Button>
         <Button variant="secondary" onClick={() => setScreen('create')}>Create Your Own</Button>
-        <Button variant="secondary" onClick={() => setScreen('history')}>History</Button>
+        <Button variant="secondary" onClick={() => { setHistorySlide('log'); setScreen('history') }}>History</Button>
       </div>
       <div className="muted" style={{ textAlign: 'center', fontSize: '.75rem' }}>v{__APP_VERSION__}</div>
     </div>
   )
-  if (screen === 'category') return (
-    <div className="screen">
-      <Header title="Choose category" onBack={() => setScreen('home')} />
-      {Object.entries(CATEGORIES).map(([key, c]) => (
-        <Button key={key} variant="secondary" className="cat" style={{ '--c': c.color }} onClick={() => { setCategory(key); setScreen(c.mode === 'core' ? 'coreLevel' : c.mode === 'hiit' ? 'hiitRounds' : 'level') }}>
+  if (screen === 'daily') return <Daily onBack={() => setScreen('home')} onProgress={() => { setHistorySlide('daily'); setScreen('history') }} />
+  if (screen === 'category') {
+    const openCategory = (key) => {
+      const c = CATEGORIES[key]
+      setCategory(key)
+      setScreen(c.mode === 'core' ? 'coreLevel' : c.mode === 'hiit' ? 'hiitRounds' : 'level')
+    }
+    const categoryButton = (key) => {
+      const c = CATEGORIES[key]
+      return (
+        <Button key={key} variant="secondary" className="cat" style={{ '--c': c.color }} onClick={() => openCategory(key)}>
           {c.label}{c.sub && <div className="muted" style={{ fontSize: '.8rem', textTransform: 'none', fontWeight: 400 }}>{c.sub}</div>}
         </Button>
-      ))}
-      {getCustomWorkouts().map((w) => (
-        <Button key={w.id} variant="secondary" className="cat" style={{ '--c': w.color }} onClick={() => { setCustom(w); setScreen('customSession') }}>
-          {w.name}<div className="muted" style={{ fontSize: '.8rem', textTransform: 'none', fontWeight: 400 }}>custom · {w.exercises.length} exercises</div>
-        </Button>
-      ))}
-    </div>
-  )
+      )
+    }
+    const sub = { fontSize: '.8rem', textTransform: 'none', fontWeight: 400 }
+    const customWorkouts = getCustomWorkouts()
+    const intervals = getCustomIntervals()
+    return (
+      <div className="screen">
+        <Header title="Choose category" onBack={() => setScreen('home')} />
+        <Divider label="Shuffler" />
+        {Object.keys(CATEGORIES).filter((k) => !CATEGORIES[k].mode || CATEGORIES[k].mode === 'core').map(categoryButton)}
+        <Divider label="Interval training" />
+        {categoryButton('hiit')}
+        {intervals.map((w) => (
+          <Button key={w.id} variant="secondary" className="cat" style={{ '--c': w.color }} onClick={() => { setIntervalWorkout(w); setScreen('intervalSession') }}>
+            {w.name}<div className="muted" style={sub}>interval · {w.intervals.length} intervals × {w.rounds} {w.rounds === 1 ? 'round' : 'rounds'}</div>
+          </Button>
+        ))}
+        {customWorkouts.length > 0 && <Divider label="Custom workouts" />}
+        {customWorkouts.map((w) => (
+          <Button key={w.id} variant="secondary" className="cat" style={{ '--c': w.color }} onClick={() => { setCustom(w); setScreen('customSession') }}>
+            {w.name}<div className="muted" style={sub}>custom · {w.exercises.length} exercises</div>
+          </Button>
+        ))}
+      </div>
+    )
+  }
   if (screen === 'coreLevel') return (
     <div className="screen">
       <Header title="Choose difficulty" onBack={() => setScreen('category')} />
@@ -160,6 +203,22 @@ export default function App() {
       onBack={() => setScreen('hiitRounds')}
       onFinish={(logged, duration) => {
         setPending({ id: Date.now(), date: new Date().toISOString(), category: 'hiit', level: 'hiit', sets: logged, duration })
+        setScreen('summary')
+      }}
+    />
+  )
+  if (screen === 'intervalSession') return (
+    <HiitSession
+      rounds={intervalWorkout.rounds}
+      steps={intervalWorkout.intervals}
+      title={intervalWorkout.name}
+      category="interval"
+      onBack={() => setScreen('category')}
+      onFinish={(logged, duration) => {
+        setPending({
+          id: Date.now(), date: new Date().toISOString(), category: `interval_${intervalWorkout.id}`, categoryLabel: intervalWorkout.name,
+          categoryColor: intervalWorkout.color, level: 'interval', rounds: intervalWorkout.rounds, perRound: intervalWorkout.intervals.length, sets: logged, duration,
+        })
         setScreen('summary')
       }}
     />
@@ -213,11 +272,11 @@ export default function App() {
   if (screen === 'summary') return (
     <Summary
       workout={pending}
-      onSave={() => { saveWorkout(pending); setPending(null); setScreen('history') }}
+      onSave={() => { saveWorkout(pending); setPending(null); setHistorySlide('log'); setScreen('history') }}
       onDiscard={() => { setPending(null); setScreen('home') }}
     />
   )
-  return <History onBack={() => setScreen('home')} />
+  return <History slide={historySlide} onBack={() => setScreen('home')} />
 }
 
 function Nickname({ onSave }) {

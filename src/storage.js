@@ -4,7 +4,7 @@ import { db } from './firebase.js'
 // Synchronous in-memory cache for the signed-in user, loaded once at login and written through to Firestore.
 // Firestore's offline cache queues writes made without a connection.
 let uid = null
-let cache = { profile: null, history: [], customWorkouts: [], customExercises: [] }
+let cache = { profile: null, history: [], customWorkouts: [], customExercises: [], customIntervals: [], daily: { done: [], picks: {} } }
 
 const userDoc = () => doc(db, 'users', uid)
 const workoutsCol = () => collection(userDoc(), 'workouts')
@@ -36,7 +36,7 @@ export async function loadUserData(user) {
   const [snap, workouts] = await Promise.all([getDoc(userDoc()), getDocs(workoutsCol())])
   if (!snap.exists() && workouts.empty) {
     const imported = await importLocalData()
-    cache = { profile: null, history: [], customWorkouts: [], customExercises: [], ...imported }
+    cache = { profile: null, history: [], customWorkouts: [], customExercises: [], customIntervals: [], daily: { done: [], picks: {} }, ...imported }
     return
   }
   const data = snap.data() ?? {}
@@ -44,13 +44,15 @@ export async function loadUserData(user) {
     profile: data.profile ?? null,
     customWorkouts: data.customWorkouts ?? [],
     customExercises: data.customExercises ?? [],
+    customIntervals: data.customIntervals ?? [],
+    daily: data.daily ?? { done: [], picks: {} },
     history: workouts.docs.map((d) => d.data()).sort((a, b) => a.date.localeCompare(b.date)),
   }
 }
 
 export function clearUserData() {
   uid = null
-  cache = { profile: null, history: [], customWorkouts: [], customExercises: [] }
+  cache = { profile: null, history: [], customWorkouts: [], customExercises: [], customIntervals: [], daily: { done: [], picks: {} } }
 }
 
 export const getProfile = () => cache.profile
@@ -66,3 +68,7 @@ export const getCustomWorkouts = () => cache.customWorkouts
 export const saveCustomWorkouts = (customWorkouts) => { cache.customWorkouts = customWorkouts; patchUser({ customWorkouts }) }
 export const getCustomExercises = () => cache.customExercises
 export const saveCustomExercises = (customExercises) => { cache.customExercises = customExercises; patchUser({ customExercises }) }
+export const getCustomIntervals = () => cache.customIntervals
+export const saveCustomIntervals = (customIntervals) => { cache.customIntervals = customIntervals; patchUser({ customIntervals }) }
+export const getDaily = () => cache.daily
+export const saveDaily = (daily) => { cache.daily = daily; patchUser({ daily }) }

@@ -191,7 +191,7 @@ export const totalReps = (sets) => sets.filter((s) => !isTimed(s)).reduce((a, s)
 export const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Forearms', 'Lower Back']
 
 export const catInfo = (w) => CATEGORIES[w.category] ?? { label: w.categoryLabel ?? 'Custom', color: w.categoryColor ?? '#ff7a1a' }
-export const levelLabel = (w) => LEVELS[w.level]?.label ?? CORE_LEVELS[w.level]?.label ?? (w.level === 'hiit' ? 'HIIT' : 'Custom')
+export const levelLabel = (w) => LEVELS[w.level]?.label ?? CORE_LEVELS[w.level]?.label ?? (w.level === 'hiit' ? 'HIIT' : w.level === 'interval' ? 'Interval' : 'Custom')
 
 export const fmtSet = (s) => {
   if (s.planned != null) return `${s.actual}/${s.planned}${isTimed(s) ? 's' : ''}`
@@ -200,3 +200,6 @@ export const fmtSet = (s) => {
 }
 
 export const totalTonnage = (sets) => sets.reduce((a, s) => a + (s.weight && !isTimed(s) ? s.weight * s.actual : 0), 0)
+
+export const isIntervalWorkout = (w) => w.level === 'interval'
+export const intervalTitle = (step, i) => step.name || `Interval ${i + 1}`

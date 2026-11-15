@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { HIIT_EXERCISES, HIIT_REST, HIIT_WORK } from './data.js'
+import { HIIT_EXERCISES, HIIT_REST, HIIT_WORK, intervalTitle } from './data.js'
 import HowTo from './HowTo.jsx'
 import { alarm, tick, unlockAudio } from './sound.js'
 import { SessionBack } from './Header.jsx'
@@ -11,19 +11,23 @@ const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 
 const WORK_COLOR = '#84982f'
 const REST_COLOR = '#3b82f6'
 
-export default function HiitSession({ rounds, onFinish, onBack }) {
+const HIIT_STEPS = HIIT_EXERCISES.map((x) => ({ ...x, work: HIIT_WORK, rest: HIIT_REST }))
+
+// Interval timer used by the built-in HIIT workout and by custom interval workouts (each step has its own work and rest).
+export default function HiitSession({ rounds, steps = HIIT_STEPS, title: workoutTitle = 'HIIT', category = 'hiit', onFinish, onBack }) {
   // Timeline of intervals: get-ready, then work/rest pairs (no rest after the very last exercise).
   const timeline = useMemo(() => {
-    const items = [{ kind: 'ready', seconds: READY_SECONDS, next: HIIT_EXERCISES[0] }]
+    const named = steps.map((x, i) => ({ ...x, name: intervalTitle(x, i), muscles: x.muscles ?? [] }))
+    const items = [{ kind: 'ready', seconds: READY_SECONDS, next: named[0] }]
     for (let r = 0; r < rounds; r++) {
-      HIIT_EXERCISES.forEach((ex, i) => {
-        items.push({ kind: 'work', seconds: HIIT_WORK, ex, round: r, n: i + 1 })
-        const upcoming = i < HIIT_EXERCISES.length - 1 ? HIIT_EXERCISES[i + 1] : r < rounds - 1 ? HIIT_EXERCISES[0] : null
-        if (upcoming) items.push({ kind: 'rest', seconds: HIIT_REST, next: upcoming, round: r })
+      named.forEach((ex, i) => {
+        items.push({ kind: 'work', seconds: ex.work, ex, round: r, n: i + 1 })
+        const upcoming = i < named.length - 1 ? named[i + 1] : r < rounds - 1 ? named[0] : null
+        if (upcoming && ex.rest > 0) items.push({ kind: 'rest', seconds: ex.rest, next: upcoming, round: r })
       })
     }
     return items
-  }, [rounds])
+  }, [rounds, steps])
 
   const [started, setStarted] = useState(false)
   const [startedAt, setStartedAt] = useState(null)
@@ -56,8 +60,8 @@ export default function HiitSession({ rounds, onFinish, onBack }) {
     }
     alarm()
     const entry = item.kind === 'work' && {
-      exercise: item.ex.name, category: 'hiit', tier: 1, muscles: item.ex.muscles,
-      unit: 'sec', planned: HIIT_WORK, actual: HIIT_WORK, status: 'done',
+      exercise: item.ex.name, category, tier: 1, muscles: item.ex.muscles,
+      unit: 'sec', planned: item.ex.work, actual: item.ex.work, status: 'done',
     }
     const next = entry ? [...logged, entry] : logged
     setLogged(next)
@@ -95,19 +99,24 @@ export default function HiitSession({ rounds, onFinish, onBack }) {
 
       {!started ? (
         <>
-          <div className="slot">HIIT · {rounds} {rounds === 1 ? 'round' : 'rounds'}</div>
+          <div className="slot">{workoutTitle} · {rounds} {rounds === 1 ? 'round' : 'rounds'}</div>
           <div className="card">
-            {HIIT_EXERCISES.map((x, i) => (
-              <div key={x.name} style={{ padding: '4px 0' }}>{i + 1}. {x.name}</div>
+            {steps.map((x, i) => (
+              <div key={i} style={{ padding: '4px 0', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span>{i + 1}. {intervalTitle(x, i)}</span>
+                {category !== 'hiit' && <span className="muted">{x.work}s / {x.rest}s</span>}
+              </div>
             ))}
-            <div className="muted" style={{ paddingTop: 8 }}>{HIIT_WORK}s work · {HIIT_REST}s rest · ~10 min per round</div>
+            <div className="muted" style={{ paddingTop: 8 }}>
+              {category === 'hiit' ? `${HIIT_WORK}s work · ${HIIT_REST}s rest · ~10 min per round` : `~${Math.ceil((rounds * steps.reduce((a, x) => a + x.work + x.rest, 0) - steps.at(-1).rest) / 60)} min · work / rest per interval`}
+            </div>
           </div>
           <Button onClick={begin}>Start Session</Button>
         </>
       ) : (
         <>
           <div className="slot" style={{ flexDirection: 'column', gap: 12, borderColor: color, paddingBottom: 56 }}>
-            <span style={{ fontSize: '1.2rem', color }}>{label}{isWork && ` · ${item.n}/${HIIT_EXERCISES.length}`}</span>
+            <span style={{ fontSize: '1.2rem', color }}>{label}{isWork && ` · ${item.n}/${steps.length}`}</span>
             {title}
             <HowTo name={title} />
           </div>

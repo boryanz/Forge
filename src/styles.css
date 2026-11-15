@@ -78,15 +78,23 @@ input[type=checkbox] { accent-color:var(--yellow); }
 .sw-detail { stroke: var(--bg); stroke-width: 2; opacity: .55; }
 .level-sword-level { font-family: var(--display); font-size: 2rem; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow); }
 
-.split .level-sword { flex: 1 1 0px; justify-content: center; }
-.level-sword-svg { flex: 1 1 0px; min-height: 0; width: 100%; max-height: 110px; }
-.level-sword-level { font-size: 1.5rem; line-height: 1; }
 .split button { flex: 1 1 0; }
-.split .level-sword { font-size: .9rem; letter-spacing: normal; flex-direction: column; background: var(--panel); border: 1px solid var(--line); color: inherit; }
-.level-sword { box-sizing: border-box; }
-.split .level-sword { padding: 1px 6px; border-width: 2px; }
-.split .level-sword .level-sword-svg { max-height: 84px; } .split .level-sword { gap: 2px; padding-bottom: 6px; }
-
+/* Level and daily cards: same fixed size, animation on the left, text on the right. */
+.level-sword, .daily-card { box-sizing: border-box; height: 88px; flex-direction: row; justify-content: flex-start; gap: 14px; padding: 8px 16px; text-align: left; }
+.card-art { width: 90px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.level-sword-svg { width: 90px; max-height: none; }
+.level-sword-level { font-size: 1.15rem; line-height: 1.1; letter-spacing: .06em; }
+.level-sword-text { min-width: 0; }
 /* No pinch/double-tap zoom; 16px inputs stop iOS zooming on focus. */
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; }
 input, select, textarea { font-size: 16px; }
+.no-bar::-webkit-scrollbar{display:none}
+.daily-card { display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; padding: 10px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; color: inherit; font: inherit; cursor: pointer; }
+.daily-streak { font-family: var(--display); font-size: 1.15rem; line-height: 1.1; color: var(--yellow); text-transform: uppercase; letter-spacing: .06em; }
+.daily-streak span { font-size: .9rem; color: inherit; }
+.daily-sub { font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-size: .85rem; background: var(--panel); border: 1px solid var(--line); color: var(--muted, #8a8f98); }
+.cal-day.done { background: var(--yellow); border-color: var(--yellow); color: #0e1013; font-weight: 700; }
+.cal-day.today { border-color: var(--yellow); border-width: 2px; }
+.cal-day.future { opacity: .35; }

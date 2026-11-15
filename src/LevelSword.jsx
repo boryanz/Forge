@@ -42,7 +42,7 @@ export default function LevelSword({ onClick }) {
       </svg>
       <div className="level-sword-text">
         <div className="level-sword-level">Level {level}</div>
-        <div className="muted">{into} / {WORKOUTS_PER_LEVEL} to next level</div>
+        <div className="muted daily-sub">{into} / {WORKOUTS_PER_LEVEL} to next level</div>
       </div>
     </button>
   )
