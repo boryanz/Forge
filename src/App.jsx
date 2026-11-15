@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { runBackHandler } from './backBus.js'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { CATEGORIES, CORE_LEVELS, CORE_ROUND_OPTIONS, LEVELS } from './data.js'
 import { auth } from './firebase.js'
@@ -50,6 +51,32 @@ export default function App() {
   const [custom, setCustom] = useState(null)
   const [historySlide, setHistorySlide] = useState('log')
   const [intervalWorkout, setIntervalWorkout] = useState(null)
+
+  // Android back button: one history entry is held open on every screen except home, so back runs the
+  // current screen's own back action; on home there is no entry, so back closes the app.
+  const [backTick, setBackTick] = useState(0)
+  const hasEntry = useRef(false)
+  const ignorePop = useRef(false)
+  useEffect(() => {
+    if (screen !== 'home' && !hasEntry.current) {
+      history.pushState({ forge: true }, '')
+      hasEntry.current = true
+    } else if (screen === 'home' && hasEntry.current) {
+      ignorePop.current = true
+      hasEntry.current = false
+      history.back()
+    }
+  }, [screen, backTick])
+  useEffect(() => {
+    const onPop = () => {
+      if (ignorePop.current) { ignorePop.current = false; return }
+      hasEntry.current = false
+      runBackHandler()
+      setBackTick((t) => t + 1)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   useEffect(() => {
     const t = setTimeout(() => setSplashDone(true), FORGING_MS)

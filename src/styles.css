@@ -98,3 +98,18 @@ input, select, textarea { font-size: 16px; }
 .cal-day.done { background: var(--yellow); border-color: var(--yellow); color: #0e1013; font-weight: 700; }
 .cal-day.today { border-color: var(--yellow); border-width: 2px; }
 .cal-day.future { opacity: .35; }
+
+button > div.muted { margin-top: 6px; }
+.slide > * { flex-shrink: 0; }
+.reps-input { border: 2px solid var(--yellow); background: var(--yellow-dim); box-shadow: 0 0 0 3px var(--yellow-dim); }
+.reps-input::placeholder { font-family: var(--mono); font-size: .8rem; font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; }
+/* Titles and back buttons stay pinned while a screen scrolls. */
+.head, .topbar { position: sticky; top: 0; z-index: 20; background: var(--bg); margin-top: calc(-1 * max(20px, env(safe-area-inset-top))); padding-top: max(20px, env(safe-area-inset-top)); }
+.head { padding-bottom: 6px; }
+button:has(> div.muted) { flex-direction: column; gap: 6px; }
+button > div.muted { margin-top: 0; }
+.cat > div.muted { margin-top: 4px; }
+
+/* Log: on small screens the level squeezes to 3 letters + ellipsis so the expand arrow always stays visible. */
+@media (max-width: 400px) { .log-level { max-width: 4ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
+@media (max-width: 400px) { .log th, .log td { padding-left: 8px; padding-right: 8px; } .log td:last-child, .log th:last-child { padding-right: 14px; } .log th { letter-spacing: .08em; } }

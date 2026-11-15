@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart'
 
-const isWeighted = (w) => w.sets.some((x) => x.weight != null)
+// Custom (non-shuffler, non-interval) workouts live in Weight Progress, with or without weights.
+const isCustom = (w) => !CATEGORIES[w.category] && !isIntervalWorkout(w)
 const maxWeight = (sets) => Math.max(0, ...sets.map((x) => x.weight ?? 0))
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: '2-digit' })
@@ -77,10 +78,23 @@ function DailyProgress() {
 
 export default function History({ onBack, slide = 'log' }) {
   const history = useMemo(() => [...getHistory()].reverse(), [])
-  const hasWeighted = useMemo(() => history.some(isWeighted), [history])
+  const hasWeighted = useMemo(() => history.some(isCustom), [history])
   const slides = useMemo(() => SLIDES.filter((x) => x.id !== 'weight' || hasWeighted), [hasWeighted])
   const [index, setIndex] = useState(() => Math.max(0, slides.findIndex((x) => x.id === slide)))
   const track = useRef(null)
+  const sectionRefs = useRef([])
+  const [height, setHeight] = useState(undefined)
+
+  // The page itself scrolls; the track is only as tall as the visible slide so tall slides don't stretch short ones.
+  useEffect(() => {
+    const el = sectionRefs.current[index]
+    if (!el) return undefined
+    const measure = () => setHeight(el.offsetHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [index])
 
   useEffect(() => {
     if (track.current) track.current.scrollLeft = index * track.current.clientWidth
@@ -106,7 +120,7 @@ export default function History({ onBack, slide = 'log' }) {
   const current = slides[index] ?? slides[0]
 
   return (
-    <div className="screen" style={{ height: '100dvh', overflow: 'hidden' }}>
+    <div className="screen">
       <Header title="History" onBack={onBack} />
       <div>
         <h2 className="m-0 flex items-center justify-center gap-1.5 whitespace-nowrap font-[family-name:var(--display)] text-xl uppercase tracking-[0.06em] text-[var(--yellow)]">
@@ -122,9 +136,9 @@ export default function History({ onBack, slide = 'log' }) {
           <Hint slide={slides[index + 1]} side="right" onClick={() => goTo(index + 1)} />
         </div>
       </div>
-      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-        {slides.map((x) => (
-          <section key={x.id} style={{ flex: '0 0 100%', minWidth: 0, scrollSnapAlign: 'center' }} className="flex flex-col gap-3.5 overflow-y-auto pb-6">
+      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', alignItems: 'flex-start', height, flexShrink: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
+        {slides.map((x, i) => (
+          <section key={x.id} ref={(el) => { sectionRefs.current[i] = el }} style={{ flex: '0 0 100%', minWidth: 0, scrollSnapAlign: 'center' }} className="slide flex flex-col gap-3.5 pb-6">
             {content[x.id]}
           </section>
         ))}
@@ -162,9 +176,10 @@ function SetText({ x, prev, custom }) {
 function Log({ history }) {
   const [open, setOpen] = useState(null)
   return (
+    <div className="log">
     <Table>
       <TableHeader>
-        <TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Level</TableHead><TableHead className="w-8" /></TableRow>
+        <TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Level</TableHead><TableHead className="w-12" /></TableRow>
       </TableHeader>
       <TableBody>
         {history.map((w, i) => (
@@ -172,6 +187,7 @@ function Log({ history }) {
         ))}
       </TableBody>
     </Table>
+    </div>
   )
 }
 
@@ -182,8 +198,8 @@ function Row({ w, history, index, open, toggle }) {
       <TableRow className="cursor-pointer" data-state={open ? 'open' : 'closed'} onClick={toggle}>
         <TableCell className="whitespace-nowrap">{fmtDate(w.date)}</TableCell>
         <TableCell><Badge style={{ '--c': c.color }}>{c.label}</Badge></TableCell>
-        <TableCell>{levelLabel(w)}</TableCell>
-        <TableCell className="px-2 text-[var(--muted)]">{open ? '▾' : '▸'}</TableCell>
+        <TableCell className="log-level">{levelLabel(w)}</TableCell>
+        <TableCell className="pl-2 pr-5 text-[var(--muted)]">{open ? '▾' : '▸'}</TableCell>
       </TableRow>
       {open && (
         <TableRow className="bg-[var(--bg)]/40">
@@ -298,7 +314,7 @@ function IntervalProgress({ history }) {
 }
 
 function Graph({ history, weighted }) {
-  const chrono = useMemo(() => [...history].reverse().filter((w) => w.category !== 'hiit' && w.level !== 'interval' && isWeighted(w) === weighted), [history, weighted])
+  const chrono = useMemo(() => [...history].reverse().filter((w) => (weighted ? isCustom(w) : CATEGORIES[w.category] && w.category !== 'hiit')), [history, weighted])
   const cats = useMemo(() => {
     const map = new Map()
     chrono.forEach((w) => map.has(w.category) || map.set(w.category, catInfo(w)))
@@ -308,10 +324,10 @@ function Graph({ history, weighted }) {
   const data = chrono.map((w) => ({
     date: fmtDate(w.date),
     [`${w.category}_reps`]: totalReps(w.sets),
-    [`${w.category}_sets`]: weighted ? maxWeight(w.sets) : w.sets.length,
+    [`${w.category}_sets`]: weighted ? maxWeight(w.sets) || null : w.sets.length,
     [`${w.category}_lvl`]: w.level,
   }))
-  if (chrono.length === 0) return <p className="muted">No bodyweight workouts yet.</p>
+  if (chrono.length === 0) return <p className="muted">{weighted ? 'No custom workouts yet.' : 'No shuffler workouts yet.'}</p>
   const second = weighted ? 'weight' : 'sets'
   return (
     <>
@@ -337,7 +353,7 @@ function Graph({ history, weighted }) {
           {cats.map(([k, info]) => <span key={k}><i style={{ background: info.color }} />{info.label}</span>)}
         </div>
         <div className="legend-row"><span>● Beginner</span><span>■ Intermediate</span><span>◆ Elite / Custom</span></div>
-        <div className="legend-row"><span>━ Total reps (left axis)</span><span>{weighted ? '┅ Top weight, kg (right axis)' : '┅ Sets (right axis)'}</span></div>
+        <div className="legend-row"><span>━ Total reps (left axis)</span><span>{weighted ? '┅ Top weight, kg (right axis, bodyweight sessions have none)' : '┅ Sets (right axis)'}</span></div>
       </Card>
     </>
   )

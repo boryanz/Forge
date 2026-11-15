@@ -3,6 +3,7 @@ import { CORE_CIRCUIT, CORE_LEVELS } from './data.js'
 import HowTo from './HowTo.jsx'
 import { alarm, tick, unlockAudio } from './sound.js'
 import { SessionBack } from './Header.jsx'
+import { useBackHandler } from './backBus.js'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -17,6 +18,7 @@ export default function CoreSession({ level, rounds, onFinish, onBack }) {
     [level, rounds],
   )
   const [startedAt, setStartedAt] = useState(null)
+  useBackHandler(onBack, !startedAt)
   const [elapsed, setElapsed] = useState(0)
   const [idx, setIdx] = useState(0)
   const [phase, setPhase] = useState('pre') // pre | work | rest

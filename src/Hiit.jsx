@@ -3,6 +3,7 @@ import { HIIT_EXERCISES, HIIT_REST, HIIT_WORK, intervalTitle } from './data.js'
 import HowTo from './HowTo.jsx'
 import { alarm, tick, unlockAudio } from './sound.js'
 import { SessionBack } from './Header.jsx'
+import { useBackHandler } from './backBus.js'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
@@ -31,6 +32,7 @@ export default function HiitSession({ rounds, steps = HIIT_STEPS, title: workout
 
   const [started, setStarted] = useState(false)
   const [startedAt, setStartedAt] = useState(null)
+  useBackHandler(onBack, !startedAt)
   const [elapsed, setElapsed] = useState(0)
   const [idx, setIdx] = useState(0)
   const [left, setLeft] = useState(READY_SECONDS)

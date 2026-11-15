@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { SessionBack } from './Header.jsx'
+import { useBackHandler } from './backBus.js'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ export default function CustomSession({ workout, onFinish, onBack }) {
     [workout],
   )
   const [startedAt, setStartedAt] = useState(null)
+  useBackHandler(onBack, !startedAt)
   const [elapsed, setElapsed] = useState(0)
   const [idx, setIdx] = useState(0)
   const [logged, setLogged] = useState([])
@@ -105,8 +107,8 @@ export default function CustomSession({ workout, onFinish, onBack }) {
       <div className="target">Set {n} of {ex.sets}</div>
       <div className="row">
         <div>
-          <div className="muted" style={{ marginBottom: 6 }}>{ex.timed ? 'Seconds to hold' : 'Reps'}</div>
-          <Input className="text-center font-[family-name:var(--display)] text-[2.2rem] font-bold" type="number" inputMode="numeric" min="0" value={reps} disabled={holdRunning} onChange={(e) => { setReps(e.target.value); setHoldLeft(null) }} />
+          <div style={{ marginBottom: 6, color: 'var(--yellow)', fontWeight: 700 }}>{ex.timed ? 'Seconds to hold' : 'Reps you did'}</div>
+          <Input className="reps-input text-center font-[family-name:var(--display)] text-[2.2rem] font-bold" placeholder={ex.timed ? 'Enter the seconds' : 'Enter the reps you did'} type="number" inputMode="numeric" min="0" value={reps} disabled={holdRunning} onChange={(e) => { setReps(e.target.value); setHoldLeft(null) }} />
         </div>
         {ex.weighted && !ex.timed && (
           <div>

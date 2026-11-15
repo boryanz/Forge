@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CATEGORIES, categoryForSet, candidatePool, spinPool, pickExercise, rollTarget, totalSeconds } from './data.js'
 import { SessionBack } from './Header.jsx'
+import { useBackHandler } from './backBus.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,7 @@ const fmt = (s) => {
 export default function Session({ category, level, totalSets, onFinish, onBack }) {
   const budget = totalSeconds(totalSets)
   const [startedAt, setStartedAt] = useState(null)
+  useBackHandler(onBack, !startedAt)
   const [elapsed, setElapsed] = useState(0)
   const [setIndex, setSetIndex] = useState(0)
   const [logged, setLogged] = useState([])
