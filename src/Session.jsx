@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { CATEGORIES, categoryForSet, candidatePool, spinPool, pickExercise, rollTarget, totalSeconds } from './data.js'
+import { CATEGORIES, categoryForSet, candidatePool, spinPool, pickExercise, rollTarget, totalSeconds, playerLevel, gamblesForLevel } from './data.js'
+import { gamblesLeftToday, spendGamble } from './daily.js'
+import { getHistory } from './storage.js'
 import { SessionBack } from './Header.jsx'
 import { useBackHandler } from './backBus.js'
 import { Button } from '@/components/ui/button'
@@ -26,7 +28,7 @@ export default function Session({ category, level, totalSets, onFinish, onBack }
   const [display, setDisplay] = useState('Ready?')
   const [current, setCurrent] = useState(null)
   const [skips, setSkips] = useState(0)
-  const [gambled, setGambled] = useState(false)
+  const [gamblesLeft, setGamblesLeft] = useState(() => gamblesLeftToday(gamblesForLevel(playerLevel(getHistory().length))))
   const [skipped, setSkipped] = useState([])
   const [failValue, setFailValue] = useState('')
   const [holdLeft, setHoldLeft] = useState(0)
@@ -69,10 +71,9 @@ export default function Session({ category, level, totalSets, onFinish, onBack }
     clearInterval(spinTimer.current)
     const ex = pickExercise(pool(), exclude, level === 'intermediate')
     const planned = rollTarget(level, ex, category)
-    setCurrent({ ...ex, planned, category: categoryForSet(category, setIndex) })
+    setCurrent({ ...ex, planned, basePlanned: planned, category: categoryForSet(category, setIndex) })
     setHoldLeft(ex.timed ? planned : 0)
     setHoldRunning(false)
-    setGambled(false)
     setDisplay(ex.name)
     setPhase('landed')
   }
@@ -105,10 +106,13 @@ export default function Session({ category, level, totalSets, onFinish, onBack }
   }
 
   const gamble = () => {
-    const planned = Math.max(1, Math.round(current.planned * (Math.random() < 0.5 ? 0.7 : 1.4)))
+    // Random swing of 10–50% either way, always measured from the original target.
+    const swing = (Math.floor(Math.random() * 5) + 1) / 10
+    const planned = Math.max(1, Math.round(current.basePlanned * (1 + (Math.random() < 0.5 ? -swing : swing))))
     setCurrent({ ...current, planned })
     if (current.timed) { setHoldLeft(planned); setHoldRunning(false) }
-    setGambled(true)
+    setGamblesLeft((n) => n - 1)
+    spendGamble()
   }
 
   const finish = (sets) => onFinish(sets, startedAt ? Math.floor((Date.now() - startedAt) / 1000) : 0)
@@ -174,7 +178,10 @@ export default function Session({ category, level, totalSets, onFinish, onBack }
             <Button variant="destructive" onClick={() => { setHoldRunning(false); setPhase('failing') }}>Failed</Button>
             <Button variant="muted" disabled={skips >= MAX_SKIPS} onClick={skip}>Skip ({MAX_SKIPS - skips})</Button>
           </div>
-          <Button variant="outline" size="sm" className="self-center" disabled={gambled || holdRunning} onClick={gamble}>🎲 Gamble</Button>
+          <button type="button" className="gamble" disabled={gamblesLeft <= 0 || holdRunning} onClick={gamble}>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6L9.6 22l9.9-12.2h-6.3z" /></svg>
+            <span className="gamble-text">Gamble ({gamblesLeft})<small>{timed ? 'time' : 'reps'} ±10–50%</small></span>
+          </button>
         </>
       )}
       {phase === 'failing' && (

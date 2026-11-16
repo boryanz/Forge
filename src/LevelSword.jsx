@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getHistory } from './storage.js'
+import { WORKOUTS_PER_LEVEL, playerLevel } from './data.js'
 
-const WORKOUTS_PER_LEVEL = 10
 const H = 210
 
 const BLADE = 'M50 3 L63 30 L63 134 L37 134 L37 30 Z'
@@ -13,7 +13,7 @@ const DETAILS = ['M50 22 V126', 'M44 152 H56', 'M44 160 H56', 'M44 168 H56', 'M4
 // Shows the same sword as the loader, filling up from the hilt as workouts are completed (10 per level).
 export default function LevelSword({ onClick }) {
   const count = getHistory().length
-  const level = Math.floor(count / WORKOUTS_PER_LEVEL) + 1
+  const level = playerLevel(count)
   const into = count % WORKOUTS_PER_LEVEL
   const [fill, setFill] = useState(0)
 

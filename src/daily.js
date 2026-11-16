@@ -86,3 +86,16 @@ export function streakInfo(doneList = getDaily().done) {
   }
   return { current, last, best, doneToday }
 }
+
+// Gambles used today; the count resets at midnight because it is keyed by date.
+export function gamblesLeftToday(allowance) {
+  const g = getDaily().gambles
+  return Math.max(0, allowance - (g?.date === dayKey() ? g.used : 0))
+}
+
+export function spendGamble() {
+  const daily = getDaily()
+  const today = dayKey()
+  const used = daily.gambles?.date === today ? daily.gambles.used : 0
+  saveDaily({ ...daily, gambles: { date: today, used: used + 1 } })
+}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
-import { CATEGORIES, HIIT_EXERCISES, HIIT_WORK, catInfo, fmtSet, isIntervalWorkout, isTimed, levelLabel, totalReps } from './data.js'
+import { CATEGORIES, HIIT_EXERCISES, HIIT_WORK, catInfo, chipLabel, fmtSet, isIntervalWorkout, isTimed, levelLabel, totalReps } from './data.js'
 import { getDaily, getHistory } from './storage.js'
 import { dayKey, streakInfo } from './daily.js'
 import Header from './Header.jsx'
@@ -42,6 +42,8 @@ function Hint({ slide, side, onClick }) {
     </button>
   )
 }
+
+const SLIDE_GAP = 24
 
 function DailyProgress() {
   const done = useMemo(() => new Set(getDaily().done), [])
@@ -97,16 +99,15 @@ export default function History({ onBack, slide = 'log' }) {
   }, [index])
 
   useEffect(() => {
-    if (track.current) track.current.scrollLeft = index * track.current.clientWidth
+    if (track.current) track.current.scrollLeft = offsetOf(index)
   }, [])
 
-  const goTo = (i) => {
-    const el = track.current
-    if (el) el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
-  }
+  // Slides are separated by a gap so a neighbour never peeks in at rest.
+  const offsetOf = (i) => (sectionRefs.current[i]?.offsetLeft ?? 0) - (track.current?.offsetLeft ?? 0)
+  const goTo = (i) => track.current?.scrollTo({ left: offsetOf(i), behavior: 'smooth' })
   const onScroll = () => {
     const el = track.current
-    if (el) setIndex(Math.round(el.scrollLeft / el.clientWidth))
+    if (el) setIndex(Math.round(el.scrollLeft / (el.clientWidth + SLIDE_GAP)))
   }
 
   const content = {
@@ -136,7 +137,7 @@ export default function History({ onBack, slide = 'log' }) {
           <Hint slide={slides[index + 1]} side="right" onClick={() => goTo(index + 1)} />
         </div>
       </div>
-      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', alignItems: 'flex-start', height, flexShrink: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
+      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', gap: SLIDE_GAP, alignItems: 'flex-start', height, flexShrink: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
         {slides.map((x, i) => (
           <section key={x.id} ref={(el) => { sectionRefs.current[i] = el }} style={{ flex: '0 0 100%', minWidth: 0, scrollSnapAlign: 'center' }} className="slide flex flex-col gap-3.5 pb-6">
             {content[x.id]}
@@ -197,7 +198,7 @@ function Row({ w, history, index, open, toggle }) {
     <>
       <TableRow className="cursor-pointer" data-state={open ? 'open' : 'closed'} onClick={toggle}>
         <TableCell className="whitespace-nowrap">{fmtDate(w.date)}</TableCell>
-        <TableCell><Badge style={{ '--c': c.color }}>{c.label}</Badge></TableCell>
+        <TableCell><Badge className="whitespace-nowrap" style={{ '--c': c.color }}>{chipLabel(w)}</Badge></TableCell>
         <TableCell className="log-level">{levelLabel(w)}</TableCell>
         <TableCell className="pl-2 pr-5 text-[var(--muted)]">{open ? '▾' : '▸'}</TableCell>
       </TableRow>

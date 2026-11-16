@@ -1,10 +1,10 @@
 export const CATEGORIES = {
-  push: { label: 'Push', color: '#3b82f6' },
-  pull: { label: 'Pull', color: '#f97316' },
-  combo: { label: 'Push/Pull Combo', color: '#a855f7' },
-  legsFront: { label: 'Legs Front', sub: 'quad / tibialis', color: '#84982f' },
-  legsBack: { label: 'Legs Back', sub: 'hamstring / glute / calves', color: '#eab308' },
-  pullbar: { label: 'Pull-up Bar Only', sub: 'pull-up bar exercises', color: '#14b8a6' },
+  push: { label: 'Push', sub: 'chest / shoulders / triceps', color: '#3b82f6' },
+  pull: { label: 'Pull', sub: 'back / biceps', color: '#f97316' },
+  combo: { label: 'Push/Pull Combo', short: 'P/P Combo', sub: 'push and pull mix', color: '#a855f7' },
+  legsFront: { label: 'Legs Front', short: 'Legs Front', sub: 'quad / tibialis', color: '#84982f' },
+  legsBack: { label: 'Legs Back', short: 'Legs Back', sub: 'hamstring / glute / calves', color: '#eab308' },
+  pullbar: { label: 'Pull-up Bar Only', short: 'PU Bar', sub: 'pull-up bar exercises', color: '#14b8a6' },
   core: { label: 'Core', sub: '10–15 min circuit', color: '#ef4444', mode: 'core' },
   hiit: { label: 'HIIT', sub: '45s on / 15s off', color: '#ec4899', mode: 'hiit' },
 }
@@ -191,6 +191,17 @@ export const totalReps = (sets) => sets.filter((s) => !isTimed(s)).reduce((a, s)
 export const MUSCLES = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Forearms', 'Lower Back']
 
 export const catInfo = (w) => CATEGORIES[w.category] ?? { label: w.categoryLabel ?? 'Custom', color: w.categoryColor ?? '#ff7a1a' }
+// Short label for the Log chip so it stays on one line: known short names, else "Wall Sit" -> "W. Sit".
+export function chipLabel(w) {
+  const { label, short } = catInfo(w)
+  const clip = (x) => (x.length > 10 ? `${x.slice(0, 9)}…` : x)
+  if (short) return short
+  if (label.length <= 9 && label.indexOf(' ') < 0) return label
+  const words = label.trim().split(/\s+/)
+  if (words.length > 1 && label.length >= 8) return clip(`${words.slice(0, -1).map((x) => `${x[0].toUpperCase()}.`).join('')} ${words.at(-1)}`)
+  return clip(label)
+}
+
 export const levelLabel = (w) => LEVELS[w.level]?.label ?? CORE_LEVELS[w.level]?.label ?? (w.level === 'hiit' ? 'HIIT' : w.level === 'interval' ? 'Interval' : 'Custom')
 
 export const fmtSet = (s) => {
@@ -203,3 +214,8 @@ export const totalTonnage = (sets) => sets.reduce((a, s) => a + (s.weight && !is
 
 export const isIntervalWorkout = (w) => w.level === 'interval'
 export const intervalTitle = (step, i) => step.name || `Interval ${i + 1}`
+
+export const WORKOUTS_PER_LEVEL = 10
+export const playerLevel = (count) => Math.floor(count / WORKOUTS_PER_LEVEL) + 1
+// 2 gambles at level 1, +1 for every level gained.
+export const gamblesForLevel = (level) => 1 + level
