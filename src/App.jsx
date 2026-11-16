@@ -3,7 +3,7 @@ import { runBackHandler } from './backBus.js'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { CATEGORIES, CORE_LEVELS, CORE_ROUND_OPTIONS, LEVELS } from './data.js'
 import { auth } from './firebase.js'
-import { clearUserData, getCustomIntervals, getCustomWorkouts, getProfile, loadUserData, saveProfile, saveWorkout } from './storage.js'
+import { clearUserData, getCustomIntervals, getCustomWorkouts, getHistory, getProfile, loadUserData, saveProfile, saveWorkout } from './storage.js'
 import Login from './Login.jsx'
 import Forging from './Forging.jsx'
 import LevelSword from './LevelSword.jsx'
@@ -12,6 +12,8 @@ import { streakInfo } from './daily.js'
 import DailyShield from './DailyShield.jsx'
 import { Confirm } from '@/components/ui/confirm'
 import Session from './Session.jsx'
+import Skills from './Skills.jsx'
+import { SKILL_LEVELS } from './skills/skillData.js'
 import Summary from './Summary.jsx'
 import History from './History.jsx'
 import Header from './Header.jsx'
@@ -114,6 +116,7 @@ export default function App() {
   if (!splashDone || user === undefined) return <Forging />
   if (!user) return <Login />
   if (!profile) return <Nickname onSave={(nickname) => { const p = { nickname }; saveProfile(p); setProfile(p) }} />
+  const skillCount = Object.values(SKILL_LEVELS).reduce((n, l) => n + l.skills.length, 0)
   if (screen === 'home') return (
     <div className="screen">
       <div>
@@ -125,7 +128,13 @@ export default function App() {
               description="You'll need to sign in again to see your workouts."
               confirmLabel="Sign out"
               onConfirm={() => signOut(auth)}
-              trigger={<Button variant="muted" size="sm" className="shrink-0">Sign out</Button>}
+              trigger={(
+                <button type="button" aria-label="Sign out" className="signout">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H9M15 8l4 4-4 4M19 12H9" />
+                  </svg>
+                </button>
+              )}
             />
           )}
         />
@@ -137,14 +146,23 @@ export default function App() {
       }} />
         <LevelSword onClick={() => { setHistorySlide('log'); setScreen('history') }} />
       </div>
-      <div className="split">
-        <Button onClick={() => setScreen('category')}>Start Workout</Button>
-        <Button variant="secondary" onClick={() => setScreen('create')}>Create Your Own</Button>
-        <Button variant="secondary" onClick={() => { setHistorySlide('log'); setScreen('history') }}>History</Button>
+      <div className="home-grid">
+        {[
+          { label: 'Start Workout', sub: 'Shuffle a session', primary: true, go: () => setScreen('category'), icon: <path d="M7 4.5v15l12-7.5z" />, filled: true },
+          { label: 'Create', sub: 'Your own workouts', go: () => setScreen('create'), icon: <path d="M12 4.5v15M4.5 12h15" /> },
+          { label: 'Skills', sub: `${skillCount} lessons`, go: () => setScreen('skills'), icon: <path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.3 6.1 20.5l1.2-6.5-4.8-4.6 6.6-.9z" />, filled: true },
+          { label: 'History', sub: `${getHistory().length} logged`, go: () => { setHistorySlide('log'); setScreen('history') }, icon: <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5v4.8h4.8M12 7.5V12l3 2" /> },
+        ].map((t) => (
+          <Button key={t.label} variant={t.primary ? 'default' : 'secondary'} className="home-tile" onClick={t.go}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill={t.filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{t.icon}</svg>
+            <span className="home-text">{t.label}<small>{t.sub}</small></span>
+          </Button>
+        ))}
       </div>
       <div className="muted" style={{ textAlign: 'center', fontSize: '.75rem' }}>v{__APP_VERSION__}</div>
     </div>
   )
+  if (screen === 'skills') return <Skills onBack={() => setScreen('home')} />
   if (screen === 'daily') return <Daily onBack={() => setScreen('home')} onProgress={() => { setHistorySlide('daily'); setScreen('history') }} />
   if (screen === 'category') {
     const openCategory = (key) => {

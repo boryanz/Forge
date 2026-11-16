@@ -92,6 +92,7 @@ function buildSide(pose) {
     lines: moved,
     head: move(head),
     headR: HEAD_R,
+    front,
     bar,
     ground: anchor === 'ground' ? GROUND_Y : null,
     wall: pose.wall ? Math.min(...all.map((p) => p[0])) + dx - 6 : null,
@@ -117,7 +118,7 @@ function buildTop(pose) {
     lines.push({ pts: [shoulders[i], ...(a.e ? [a.e] : []), a.h] })
     shapes.push({ t: 'hand', x: a.h[0], y: a.h[1] })
   })
-  return { lines, head: [cx, headY], headR: HEAD_R, bar: null, ground: null, wall: null, shapes }
+  return { kind: 'top', faceUp: !!pose.faceUp, lines, head: [cx, headY], headR: HEAD_R, bar: null, ground: null, wall: null, shapes }
 }
 
 export const buildFigure = (pose) => (pose.kind === 'top' ? buildTop(pose) : buildSide(pose))
