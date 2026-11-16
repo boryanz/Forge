@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { CATEGORIES, HIIT_EXERCISES, HIIT_WORK, catInfo, chipLabel, fmtSet, isIntervalWorkout, isTimed, levelLabel, totalReps } from './data.js'
 import { getDaily, getHistory } from './storage.js'
@@ -43,8 +43,6 @@ function Hint({ slide, side, onClick }) {
   )
 }
 
-const SLIDE_GAP = 24
-
 function DailyProgress() {
   const done = useMemo(() => new Set(getDaily().done), [])
   const { current, best, last } = useMemo(() => streakInfo(), [])
@@ -83,31 +81,23 @@ export default function History({ onBack, slide = 'log' }) {
   const hasWeighted = useMemo(() => history.some(isCustom), [history])
   const slides = useMemo(() => SLIDES.filter((x) => x.id !== 'weight' || hasWeighted), [hasWeighted])
   const [index, setIndex] = useState(() => Math.max(0, slides.findIndex((x) => x.id === slide)))
-  const track = useRef(null)
-  const sectionRefs = useRef([])
-  const [height, setHeight] = useState(undefined)
+  const [dir, setDir] = useState(0)
+  const touch = useRef(null)
 
-  // The page itself scrolls; the track is only as tall as the visible slide so tall slides don't stretch short ones.
-  useEffect(() => {
-    const el = sectionRefs.current[index]
-    if (!el) return undefined
-    const measure = () => setHeight(el.offsetHeight)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [index])
-
-  useEffect(() => {
-    if (track.current) track.current.scrollLeft = offsetOf(index)
-  }, [])
-
-  // Slides are separated by a gap so a neighbour never peeks in at rest.
-  const offsetOf = (i) => (sectionRefs.current[i]?.offsetLeft ?? 0) - (track.current?.offsetLeft ?? 0)
-  const goTo = (i) => track.current?.scrollTo({ left: offsetOf(i), behavior: 'smooth' })
-  const onScroll = () => {
-    const el = track.current
-    if (el) setIndex(Math.round(el.scrollLeft / (el.clientWidth + SLIDE_GAP)))
+  // Each slide is its own page: only the active one is rendered, and a horizontal swipe switches pages.
+  const goTo = (i) => {
+    if (i < 0 || i >= slides.length || i === index) return
+    setDir(i > index ? 1 : -1)
+    setIndex(i)
+  }
+  const onTouchStart = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+  const onTouchEnd = (e) => {
+    const start = touch.current
+    touch.current = null
+    if (!start) return
+    const dx = e.changedTouches[0].clientX - start.x
+    const dy = e.changedTouches[0].clientY - start.y
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goTo(index + (dx < 0 ? 1 : -1))
   }
 
   const content = {
@@ -137,12 +127,10 @@ export default function History({ onBack, slide = 'log' }) {
           <Hint slide={slides[index + 1]} side="right" onClick={() => goTo(index + 1)} />
         </div>
       </div>
-      <div ref={track} onScroll={onScroll} className="no-bar" style={{ display: 'flex', gap: SLIDE_GAP, alignItems: 'flex-start', height, flexShrink: 0, overflowX: 'auto', overflowY: 'hidden', scrollSnapType: 'x mandatory', scrollbarWidth: 'none' }}>
-        {slides.map((x, i) => (
-          <section key={x.id} ref={(el) => { sectionRefs.current[i] = el }} style={{ flex: '0 0 100%', minWidth: 0, scrollSnapAlign: 'center' }} className="slide flex flex-col gap-3.5 pb-6">
-            {content[x.id]}
-          </section>
-        ))}
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ touchAction: 'pan-y', overflow: 'hidden', minHeight: '60vh' }}>
+        <section key={current.id} className={`slide page-in flex flex-col gap-3.5 pb-6 ${dir > 0 ? 'from-right' : dir < 0 ? 'from-left' : ''}`} style={{ maxWidth: '100%' }}>
+          {content[current.id]}
+        </section>
       </div>
     </div>
   )
